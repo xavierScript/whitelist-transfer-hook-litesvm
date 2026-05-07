@@ -50,48 +50,54 @@ fn test_full_flow() {
     svm.add_program(program_id, bytes).unwrap();
     svm.airdrop(&payer.pubkey(), 10_000_000_000).unwrap();
 
-    let (whitelist_pda, _) = Pubkey::find_program_address(&[b"whitelist"], &program_id);
+    let (config_pda, _) = Pubkey::find_program_address(&[b"config"], &program_id);
+    let (whitelist_entry_pda, _) = Pubkey::find_program_address(
+        &[b"whitelist", payer.pubkey().as_ref()],
+        &program_id,
+    );
     let system_program_id = solana_program::system_program::id();
 
-    // Step 1: Initialize whitelist
+    // Step 1: Initialize config
     let ix = Instruction::new_with_bytes(
         program_id,
-        &program::instruction::InitializeWhitelist {}.data(),
-        program::accounts::InitializeWhitelist {
+        &program::instruction::InitializeConfig {}.data(),
+        program::accounts::InitializeConfig {
             admin: payer.pubkey(),
-            whitelist: whitelist_pda,
+            config: config_pda,
             system_program: system_program_id,
         }
         .to_account_metas(None),
     );
-    send(&mut svm, &[ix], &payer, &[&payer]).expect("initialize_whitelist failed");
+    send(&mut svm, &[ix], &payer, &[&payer]).expect("initialize_config failed");
 
-    // Step 2: Add user (payer) to whitelist
+    // Step 2: Add user (payer) to whitelist — creates WhitelistEntry PDA
     let ix = Instruction::new_with_bytes(
         program_id,
         &program::instruction::AddToWhitelist {
             user: payer.pubkey(),
         }
         .data(),
-        program::accounts::WhitelistOperations {
+        program::accounts::AddToWhitelist {
             admin: payer.pubkey(),
-            whitelist: whitelist_pda,
+            config: config_pda,
+            whitelist_entry: whitelist_entry_pda,
             system_program: system_program_id,
         }
         .to_account_metas(None),
     );
     send(&mut svm, &[ix], &payer, &[&payer]).expect("add_to_whitelist failed");
 
-    // Step 3: Remove user from whitelist
+    // Step 3: Remove user from whitelist — closes WhitelistEntry PDA
     let ix = Instruction::new_with_bytes(
         program_id,
         &program::instruction::RemoveFromWhitelist {
             user: payer.pubkey(),
         }
         .data(),
-        program::accounts::WhitelistOperations {
+        program::accounts::RemoveFromWhitelist {
             admin: payer.pubkey(),
-            whitelist: whitelist_pda,
+            config: config_pda,
+            whitelist_entry: whitelist_entry_pda,
             system_program: system_program_id,
         }
         .to_account_metas(None),
@@ -204,11 +210,16 @@ fn test_full_flow() {
             9,
         )
         .unwrap();
-        // Order: extra_account_meta_list, then TLV-registered extras (whitelist), then hook program ID.
+        // Derive the per-user whitelist entry PDA for the source token owner
+        let (user_whitelist_pda, _) = Pubkey::find_program_address(
+            &[b"whitelist", source.pubkey().as_ref()],
+            &program_id,
+        );
+        // Order: extra_account_meta_list, then TLV-registered extras (whitelist_entry), then hook program ID.
         ix.accounts
             .push(AccountMeta::new_readonly(extra_meta_pda, false));
         ix.accounts
-            .push(AccountMeta::new_readonly(whitelist_pda, false));
+            .push(AccountMeta::new_readonly(user_whitelist_pda, false));
         ix.accounts
             .push(AccountMeta::new_readonly(program_id, false));
         ix
@@ -229,9 +240,10 @@ fn test_full_flow() {
             user: payer.pubkey(),
         }
         .data(),
-        program::accounts::WhitelistOperations {
+        program::accounts::AddToWhitelist {
             admin: payer.pubkey(),
-            whitelist: whitelist_pda,
+            config: config_pda,
+            whitelist_entry: whitelist_entry_pda,
             system_program: system_program_id,
         }
         .to_account_metas(None),

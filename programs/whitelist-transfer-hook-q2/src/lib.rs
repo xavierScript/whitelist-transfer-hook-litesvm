@@ -12,21 +12,21 @@ use spl_discriminator::SplDiscriminate;
 use spl_tlv_account_resolution::state::ExtraAccountMetaList;
 use spl_transfer_hook_interface::instruction::ExecuteInstruction;
 
-declare_id!("EUkbfr6mqkXx4XFAdFaRQP79kw4ibQbEZwjmxUUkQxao");
+declare_id!("GUwN4GZEyQ9dgZwJNt2c8iy2e9hYCUh6p6hHXJhpZwdJ");
 
 #[program]
 pub mod whitelist_transfer_hook_q2 {
     use super::*;
 
-    pub fn initialize_whitelist(ctx: Context<InitializeWhitelist>) -> Result<()> {
-        ctx.accounts.initialize_whitelist(ctx.bumps)
+    pub fn initialize_config(ctx: Context<InitializeConfig>) -> Result<()> {
+        ctx.accounts.initialize_config(ctx.bumps)
     }
 
-    pub fn add_to_whitelist(ctx: Context<WhitelistOperations>, user: Pubkey) -> Result<()> {
-        ctx.accounts.add_to_whitelist(user)
+    pub fn add_to_whitelist(ctx: Context<AddToWhitelist>, user: Pubkey) -> Result<()> {
+        ctx.accounts.add_to_whitelist(user, ctx.bumps)
     }
 
-    pub fn remove_from_whitelist(ctx: Context<WhitelistOperations>, user: Pubkey) -> Result<()> {
+    pub fn remove_from_whitelist(ctx: Context<RemoveFromWhitelist>, user: Pubkey) -> Result<()> {
         ctx.accounts.remove_from_whitelist(user)
     }
 
